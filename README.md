@@ -133,7 +133,7 @@ args: [--, //:bazel_env/tools/buildifier, -mode=check]
 
 ```sh
 python -m pip install -e .
-python -m pip install pre-commit==4.7.0 prek==0.5.7
+python -m pip install -r requirements-dev.txt
 python -m unittest discover -s tests -v
 BAZEL_REAL_TESTS=1 python -m unittest discover -s tests -p test_runners.py -k test_real_bazel -v
 ```
@@ -144,6 +144,20 @@ to build the pinned fixture. Tests use temporary repositories; they do not
 install Git hooks into this checkout. The small Bash probe is a Bazel fixture,
 not part of the plugin runtime. CI tests Python 3.11 and 3.14 on Linux and macOS,
 with real Bazel integration on Python 3.14.
+
+## Dependency updates
+
+Install the hosted [Renovate GitHub App](https://github.com/apps/renovate) and
+grant it access to this repository. Once `renovate.json` is on the default
+branch, the App manages updates without a scheduled workflow or bot-token secret.
+Its Dependency Dashboard issue tracks pending updates and any required actions.
+
+The configuration uses [`config:best-practices`](https://docs.renovatebot.com/presets-config/#configbest-practices)
+without overrides. This includes GitHub Actions SHA pinning, recommended update
+grouping, development dependency pinning, and applicable lock-file maintenance.
+Updates require manual merging by default. The preset's default path exclusions
+apply, including test directories, so the Bazel fixture is not scanned.
+Release Please continues to manage the package version.
 
 ## Releases
 

@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install . pre-commit==4.7.0 prek==0.5.7
+      - run: python -m pip install . -r requirements-dev.txt
       - uses: bazel-contrib/setup-bazel@0.15.0
         if: matrix.python == '3.14'
         with:
