@@ -1,21 +1,24 @@
 # pre-commit-bazel
 
 Run executable Bazel targets with **pre-commit** or **prek**, using your project's
-pinned tools. On first use, the Bash wrapper builds the target and caches a
+pinned tools. On first use, the Python wrapper builds the target and caches a
 Bazel-generated launcher. Later invocations execute that launcher without
 starting Bazel.
 
 ## Requirements
 
-- Linux or macOS, with Bash 3.2 or newer and Git on `PATH`.
+- Linux or macOS, with Python 3.11+ and Git on `PATH`.
+- Bash for Bazel's generated launchers (normally provided by the OS).
 - `bazel` on `PATH` for initial setup and refresh (a Bazelisk launcher works).
-- pre-commit 4.4+ or prek with `unsupported_script` support.
+- pre-commit or prek with Python hook support.
 - The consuming Git repository root must also be the Bazel workspace root,
   containing `MODULE.bazel`. Nested workspaces are not supported.
 
-No Python dependency is needed by the wrapper. The hook uses
-`language: unsupported_script`, supported by both runners. The integration suite
-tests Bazel 8.4.2.
+The hook uses `language: python`: the runner installs this package into its
+managed Python environment. No manual package installation is needed for hook
+usage, and the plugin has no third-party runtime dependencies. An appropriate
+Python interpreter must be available to the runner. Bazel remains an external
+prerequisite. The integration suite tests Bazel 8.4.2.
 
 ## Configure hooks
 
@@ -45,7 +48,7 @@ The target must be one executable label, such as `//tools:buildifier` or
 The wrapper interface is:
 
 ```text
-hooks/bazel-target [--refresh] -- TARGET [ARGS...]
+bazel-target [--refresh] -- TARGET [ARGS...]
 ```
 
 Everything after the target belongs to the tool; the runner appends matching
@@ -70,9 +73,10 @@ helper through `--run_under` to run the executable from the repository root.
 Bazel builds the target and generates a launcher without executing the tool.
 The wrapper executes that launcher with the current arguments and filenames.
 
-Launchers live under `pre-commit-bazel/v1` in the consuming worktree's Git metadata
-directory. They are keyed by target label and plugin checkout location. No
-`.gitignore` entry is needed. Each target and worktree has its own cache entry;
+Launchers live under `pre-commit-bazel/v2` in the consuming worktree's Git metadata
+directory. They are keyed by target label, installed package location, and Python
+interpreter path. Earlier `v1` Bash launchers are left untouched and are not
+reused. No `.gitignore` entry is needed. Each target and worktree has its own cache entry;
 concurrent bootstrap attempts publish complete launchers atomically.
 
 Existing launchers are reused without checking dependencies or invoking Bazel.
@@ -84,16 +88,20 @@ temporarily add `--refresh` before the argument separator and run that hook:
 args: [--refresh, --, //tools:buildifier, -mode=check]
 ```
 
-Remove `--refresh` afterward to resume cached execution. You can also invoke
-the wrapper by absolute path from the consuming workspace:
+Remove `--refresh` afterward to resume cached execution. For standalone use,
+install the package into your Python environment, then invoke the command from
+the consuming workspace:
 
 ```sh
-/path/to/pre-commit-bazel/hooks/bazel-target --refresh -- //tools:buildifier -mode=check BUILD.bazel
+python -m pip install /path/to/pre-commit-bazel
+bazel-target --refresh -- //tools:buildifier -mode=check BUILD.bazel
+# Equivalent module entry point:
+python -m pre_commit_bazel --refresh -- //tools:buildifier -mode=check BUILD.bazel
 ```
 
-That direct invocation has a separate cache entry if its plugin location differs
-from the runner's cached checkout. Refresh through the same entry point you use
-for normal execution. To reset all entries for a worktree, remove its
+That direct invocation has a separate cache entry if its package location or
+interpreter differs from the runner's environment. Refresh through the same entry
+point you use for normal execution. To reset all entries for a worktree, remove its
 `pre-commit-bazel` directory under `git rev-parse --absolute-git-dir`.
 
 The launcher retains target-declared arguments and runtime settings captured by
@@ -124,11 +132,15 @@ args: [--, //:bazel_env/tools/buildifier, -mode=check]
 ## Development
 
 ```sh
-bash tests/test-wrapper.sh
-bash tests/test-runners.sh
-bash tests/test-runners.sh --real
+python -m pip install -e .
+python -m pip install pre-commit==4.7.0 prek==0.5.7
+python -m unittest discover -s tests -v
+BAZEL_REAL_TESTS=1 python -m unittest discover -s tests -p test_runners.py -k test_real_bazel -v
 ```
 
-Runner tests require both pre-commit and prek. `--real` also requires Bazel and
-network access to build the pinned fixture. Tests use temporary repositories;
-they do not install Git hooks into this checkout. CI runs on Linux and macOS.
+Runner tests require both pre-commit and prek and install the plugin into each
+runner's own environment. Real Bazel tests also require Bazel and network access
+to build the pinned fixture. Tests use temporary repositories; they do not
+install Git hooks into this checkout. The small Bash probe is a Bazel fixture,
+not part of the plugin runtime. CI tests Python 3.11 and 3.14 on Linux and macOS,
+with real Bazel integration on Python 3.14.

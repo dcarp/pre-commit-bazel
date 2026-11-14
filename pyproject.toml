@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pre-commit-bazel"
+version = "0.1.0"
+description = "Build executable Bazel targets once and run them as pre-commit or prek hooks"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+
+[project.scripts]
+bazel-target = "pre_commit_bazel.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

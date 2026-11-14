@@ -1,7 +1,7 @@
 - id: bazel-target
   name: Run a Bazel target
   description: Build an executable Bazel target once and reuse its launcher.
-  entry: hooks/bazel-target
-  language: unsupported_script
+  entry: bazel-target
+  language: python
   require_serial: true
   types: [file]
