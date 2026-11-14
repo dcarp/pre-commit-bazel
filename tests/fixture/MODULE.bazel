@@ -1,0 +1,4 @@
+module(name = "bazel_target_hook_test")
+
+bazel_dep(name = "bazel_env.bzl", version = "0.10.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")

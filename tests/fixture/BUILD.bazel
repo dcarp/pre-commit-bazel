@@ -1,0 +1,17 @@
+load("@bazel_env.bzl", "bazel_env")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "probe",
+    srcs = ["probe.sh"],
+    args = ["--from-target"],
+    data = [
+        "message.txt",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+bazel_env(
+    name = "bazel_env",
+    tools = {"probe": ":probe"},
+)

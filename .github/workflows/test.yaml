@@ -1,0 +1,33 @@
+name: Tests
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pre-commit==4.7.0 prek==0.5.7
+      - uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          module-root: tests/fixture
+          bazelisk-cache: true
+          repository-cache: true
+      - run: |
+          for script in hooks/* tests/*.sh tests/fixture/probe.sh; do
+            /bin/bash -n "$script"
+          done
+      - run: /bin/bash tests/test-wrapper.sh
+      - run: /bin/bash tests/test-runners.sh
+      - run: /bin/bash tests/test-runners.sh --real

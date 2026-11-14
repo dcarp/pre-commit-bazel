@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    printf '%s\n' 'Usage: bazel-target [--refresh] -- TARGET [ARGS...]'
+}
+
+fail() {
+    printf 'bazel-target: %s\n' "$*" >&2
+    exit 2
+}
+
+refresh=false
+separator=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --refresh) refresh=true; shift ;;
+        --help|-h) usage; exit 0 ;;
+        --) separator=true; shift; break ;;
+        *) fail "expected --refresh or -- before target, got: $1" ;;
+    esac
+done
+[[ "$separator" == true && $# -gt 0 ]] || { usage >&2; exit 2; }
+target=$1
+shift
+# Require a single explicit label, leaving detailed label validation to Bazel.
+[[ "$target" =~ ^(@@?[^/[:space:]]+)?//[^:[:space:]]*:[^:[:space:]]+$ ]] ||
+    fail 'TARGET must be an explicit label such as //tools:buildifier or @repo//:tool'
+case "$target" in
+    *'*'*|*'?'*|*'['*|*']'*|*/...|*:all|*:all-targets)
+        fail 'target patterns are not supported; provide one executable target' ;;
+esac
+[[ -f MODULE.bazel ]] || fail 'run from the consuming Bazel workspace root (MODULE.bazel is missing)'
+command -v git >/dev/null 2>&1 || fail 'git is required on PATH'
+git_dir=$(git rev-parse --absolute-git-dir) || fail 'run from a Git working tree'
+[[ -z $(git rev-parse --show-prefix) ]] || fail 'the Git repository root must also be the Bazel workspace root'
+hook_dir=$(cd "$(dirname "$0")" && pwd -P)
+cache_key=$(printf '%s\0' "$target" "$hook_dir" | git hash-object --stdin)
+cache_dir="$git_dir/pre-commit-bazel/v1"
+launcher="$cache_dir/$cache_key"
+
+if [[ "$refresh" == true || ! -x "$launcher" ]]; then
+    command -v bazel >/dev/null 2>&1 || fail 'bazel is required on PATH to build the target launcher'
+    mkdir -p "$cache_dir"
+    temporary_launcher=$(mktemp "$cache_dir/.launcher.XXXXXXXX")
+    trap 'rm -f "$temporary_launcher"' EXIT
+    # Cache only target defaults; arguments and filenames vary on every run.
+    printf -v run_under '%q' "$hook_dir/run-from-workspace"
+    # script_path with run_under invokes bash -c, passing launcher arguments as
+    # shell positional parameters rather than appending them to the command.
+    # Give the helper their count and values before Bazel appends the target.
+    run_under+=' "$#" "$@"'
+    bazel run "--script_path=$temporary_launcher" "--run_under=$run_under" "$target" >&2
+    [[ -s "$temporary_launcher" && -x "$temporary_launcher" ]] || fail 'Bazel did not generate an executable launcher'
+    mv -f "$temporary_launcher" "$launcher"
+    trap - EXIT
+fi
+
+# The first argument becomes bash -c's $0; real hook arguments become "$@".
+exec "$launcher" bazel-target "$@"
