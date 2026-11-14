@@ -144,3 +144,20 @@ to build the pinned fixture. Tests use temporary repositories; they do not
 install Git hooks into this checkout. The small Bash probe is a Bazel fixture,
 not part of the plugin runtime. CI tests Python 3.11 and 3.14 on Linux and macOS,
 with real Bazel integration on Python 3.14.
+
+## Releases
+
+[Release Please](https://github.com/googleapis/release-please) runs on pushes to
+`main` and can also be started manually from GitHub Actions. Conventional commits
+such as `feat: ...` and `fix: ...` accumulate into a release PR that updates
+`pyproject.toml`, `CHANGELOG.md`, and the release manifest. Merging that PR creates
+a GitHub release and a tag such as `v0.1.0`, which consumers can use as their hook
+`rev`. The first release starts at `0.1.0`; breaking changes before `1.0.0` bump
+the minor version. Package publication to PyPI is not configured.
+
+In the repository's Actions settings, enable **Allow GitHub Actions to create
+and approve pull requests**. The workflow uses `GITHUB_TOKEN` by default.
+GitHub does not trigger other workflows for PRs and tags created with that token.
+To run CI automatically on release PRs, configure the `RELEASE_PLEASE_TOKEN`
+Actions secret with a token that can write repository contents, issues, and pull
+requests. The workflow uses that token when present.
