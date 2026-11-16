@@ -1,2 +1,2 @@
 pre-commit==4.7.0
-prek==0.5.7
+prek==0.5.11
